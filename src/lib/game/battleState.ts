@@ -14,7 +14,7 @@ export function createPlayer(id: string, username: string): Player {
   return {
     id,
     username,
-    hp: 100,
+    hp: 10,
     maxHp: 100,
     contributions: 0,
     attack: 10,

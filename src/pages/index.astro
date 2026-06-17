@@ -1,267 +1,592 @@
 ---
-import PowerUpPickup from "../components/PowerUpPickup.astro";
-import ActiveEffects from "../components/ActiveEffects.astro";
-
-import { initializeBattleState } from "../lib/game/battleState";
-import { updateSpawns, getSpawnedPowerUps, getPlayerActivePowerUps } from "../lib/powerups/engine";
-
-// 1. Initialize core state data during Astro's Server-Side Compilation Phase
-let initialBattleState = initializeBattleState("Player 1", "Player 2");
-
-// Seed initial power-up drops for Turn 0
-initialBattleState = updateSpawns(initialBattleState);
-
-let spawnedPowerUps = getSpawnedPowerUps(initialBattleState);
-let player1Effects = getPlayerActivePowerUps(initialBattleState, initialBattleState.player1.id);
-let player2Effects = getPlayerActivePowerUps(initialBattleState, initialBattleState.player2.id);
+// src/pages/index.astro
+// Mona Mayhem - GitHub Contribution Battle Arena
 ---
 
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width" />
-  <title>Mona Mayhem - Power-Up System Demo</title>
-</head>
-<body>
-
-  <main class="arena" id="arena-manager" data-initial-state={JSON.stringify(initialBattleState)}>
-    <h1>⚔️ Mona Mayhem Arena</h1>
-
-    <div class="controls-panel">
-      <button id="step-turn-btn">💥 Advance Turn (Take Turn Damage)</button>
-      <div class="turn-counter" id="global-turn-display">Current Turn: 0</div>
-    </div>
-
-    <section class="players-grid">
-      <div class="player-card" data-player-id="player-1">
-        <h2>{initialBattleState.player1.username}</h2>
-        <div class="hp-bar-container">
-          <div class="hp-text" id="p1-hp">HP: {initialBattleState.player1.hp} / {initialBattleState.player1.maxHp}</div>
-        </div>
-        <div class="effects-wrapper">
-          <h3>Active Buffs:</h3>
-          <div id="p1-active-effects">
-            <ActiveEffects effects={player1Effects} />
-          </div>
-        </div>
-      </div>
-
-      <div class="player-card" data-player-id="player-2">
-        <h2>{initialBattleState.player2.username}</h2>
-        <div class="hp-bar-container">
-          <div class="hp-text" id="p2-hp">HP: {initialBattleState.player2.hp} / {initialBattleState.player2.maxHp}</div>
-        </div>
-        <div class="effects-wrapper">
-          <h3>Active Buffs:</h3>
-          <div id="p2-active-effects">
-            <ActiveEffects effects={player2Effects} />
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="battle-arena" class="battle-arena">
-      {spawnedPowerUps.map((powerUp) => (
-        <PowerUpPickup powerUp={powerUp} />
-      ))}
-    </section>
-  </main>
-
-  <script>
-    import { collectPowerUp, updateTimers, updateSpawns } from "../lib/powerups/engine";
-    import { updatePlayerHP, nextTurn } from "../lib/game/battleState";
-    import { getPowerUpDefinition } from "../lib/powerups/registry";
-    import type { BattleState } from "../lib/types/powerup";
-
-    const manager = document.getElementById("arena-manager");
-    
-    // Ingest state safely from Server Side Render block
-    let currentState: BattleState = JSON.parse(manager!.getAttribute("data-initial-state")!);
-
-    /**
-     * Client UI Synchronization Engine
-     * Dynamically repopulates layout nodes, HP meters, and active effect cards 
-     * directly into the browser DOM layout whenever actions occur.
-     */
-    function renderStateToDOM() {
-      // 1. Sync Text Displays
-      const p1HpText = document.getElementById("p1-hp");
-      const p2HpText = document.getElementById("p2-hp");
-      const turnText = document.getElementById("global-turn-display");
-
-      if (p1HpText) p1HpText.textContent = `HP: ${currentState.player1.hp} / ${currentState.player1.maxHp}`;
-      if (p2HpText) p2HpText.textContent = `HP: ${currentState.player2.hp} / ${currentState.player2.maxHp}`;
-      if (turnText) turnText.textContent = `Current Turn: ${currentState.currentTurn}`;
-
-      // 2. Reactively Re-Render Buff Badge Cards based on current active state lists
-      renderActiveEffectsForPlayer("player-1", "p1-active-effects");
-      renderActiveEffectsForPlayer("player-2", "p2-active-effects");
-
-      // 3. Reactively Re-Render New Arena Items if spawned
-      renderArenaSpawnedItems();
-    }
-
-    function renderActiveEffectsForPlayer(playerId: string, containerId: string) {
-      const container = document.getElementById(containerId);
-      if (!container) return;
-
-      const items = currentState.activePowerUps.filter(p => p.playerId === playerId);
-      
-      if (items.length === 0) {
-        container.innerHTML = `<span style="color: #666; font-style: italic; font-size: 12px;">No active effects</span>`;
-        return;
-      }
-
-      container.innerHTML = `<div style="display: flex; gap: 10px;">` + 
-        items.map(effect => {
-          const def = getPowerUpDefinition(effect.type);
-          const turnsLeft = effect.expiresAt - currentState.currentTurn;
-          return `
-            <div style="padding: 8px; border-radius: 6px; background: #1a1a1a; border-left: 3px solid ${def?.arcadeTheme.color || '#555'}; display: flex; flex-direction: column; font-size: 12px;">
-              <span>${def?.arcadeTheme.icon} <strong>${def?.name}</strong></span>
-              <small style="color: #aaa;">${turnsLeft} turn${turnsLeft > 1 ? 's' : ''} left</small>
-            </div>
-          `;
-        }).join('') + `</div>`;
-    }
-
-    function renderArenaSpawnedItems() {
-      const arena = document.getElementById("battle-arena");
-      if (!arena) return;
-
-      // Only draw items that haven't been picked up and haven't expired yet
-      const existingPickups = arena.querySelectorAll('.powerup-pickup');
-      existingPickups.forEach(el => el.remove());
-
-      currentState.spawnedPowerUps.forEach(pu => {
-        const def = getPowerUpDefinition(pu.type);
-        const div = document.createElement('div');
-        div.className = 'powerup-pickup';
-        div.setAttribute('data-powerup-id', pu.id);
-        div.style.left = `${pu.position.x}px`;
-        div.style.top = `${pu.position.y}px`;
-        div.style.borderColor = def?.arcadeTheme.color || '#333';
-        div.title = def?.description || '';
-        
-        div.innerHTML = `
-          <div style="font-size: 28px;">${def?.arcadeTheme.icon}</div>
-          <div style="font-size: 10px; margin-top: 2px; font-weight: bold;">${def?.name}</div>
-        `;
-
-        div.addEventListener('click', () => {
-          window.dispatchEvent(new CustomEvent("collectPowerUp", { detail: { powerUpId: pu.id } }));
-          div.remove();
-        });
-
-        arena.appendChild(div);
-      });
-    }
-
-    // INTERACTIVE LINK 1: Turn Advance + Random Damage Sim
-    document.getElementById("step-turn-btn")?.addEventListener("click", () => {
-      currentState = nextTurn(currentState);
-      
-      // Inflict 15 structural damage onto both participants to test health boost limits
-      currentState = updatePlayerHP(currentState, "player-1", -15);
-      currentState = updatePlayerHP(currentState, "player-2", -15);
-      
-      // Update our spawn manager rules checks (Interval checks run cleanly here)
-      currentState = updateSpawns(currentState);
-      currentState = updateTimers(currentState);
-
-      console.log(`[Turn Step] Current Match Turn Log: ${currentState.currentTurn}`, currentState);
-      renderStateToDOM();
-    });
-
-    // INTERACTIVE LINK 2: Power Up Interactive Clicking Capture
-    window.addEventListener("collectPowerUp", (event) => {
-      const customEvent = event as CustomEvent;
-      const powerUpId = customEvent.detail.powerUpId;
-
-      console.log("-> Intercepted item pick up action:", powerUpId);
-
-      // Player 1 claims item
-      currentState = collectPowerUp(currentState, powerUpId, "player-1");
-      
-      console.log("-> State post-collection calculations:", currentState);
-      renderStateToDOM();
-    });
-  </script>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mona Mayhem — GitHub Contribution Battle Arena</title>
   <style>
+    /* ── Tokens ───────────────────────────────────────────────── */
+    :root {
+      --bg:         #0d1117;
+      --surface:    #161b22;
+      --border:     #30363d;
+      --green:      #39d353;
+      --green-dim:  #1a6628;
+      --red:        #f85149;
+      --yellow:     #e3b341;
+      --text:       #e6edf3;
+      --muted:      #8b949e;
+      --radius:     6px;
+      --font-mono:  'Courier New', Courier, monospace;
+      --font-ui:    -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* ── Reset ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      margin: 0;
-      background: #101010;
-      color: white;
-      font-family: system-ui, sans-serif;
-    }
-    .arena {
-      padding: 40px;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    .controls-panel {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 30px;
+      padding: 2rem 1rem 4rem;
     }
-    #step-turn-btn {
-      background: #ffdd00;
-      color: #101010;
-      border: none;
-      padding: 14px 28px;
-      font-size: 16px;
-      font-weight: bold;
-      border-radius: 8px;
-      cursor: pointer;
-      box-shadow: 0 4px 10px rgba(255, 221, 0, 0.2);
+
+    /* ── Header ───────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
     }
-    #step-turn-btn:active {
-      transform: scale(0.97);
+
+    .wordmark {
+      font-family: var(--font-mono);
+      font-size: clamp(1.5rem, 5vw, 2.6rem);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--green);
+      text-shadow: 0 0 20px rgba(57, 211, 83, 0.35);
     }
-    .turn-counter {
-      font-size: 14px;
-      color: #aaa;
-      font-weight: bold;
+
+    .wordmark span { color: var(--text); }
+
+    .tagline {
+      margin-top: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
     }
-    .players-grid {
-      display: flex;
-      justify-content: space-between;
-      gap: 30px;
-      margin-bottom: 30px;
-    }
-    .player-card {
-      background: #1e1e1e;
-      border: 1px solid #333;
-      padding: 20px;
-      border-radius: 12px;
-      flex: 1;
-    }
-    .hp-text {
-      font-size: 20px;
-      font-weight: bold;
-      color: #ff4444;
-      margin-bottom: 15px;
-    }
-    .effects-wrapper h3 {
-      font-size: 14px;
-      color: #888;
-      margin-bottom: 8px;
-    }
-    .battle-arena {
-      position: relative;
-      height: 500px;
-      border-radius: 16px;
-      background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%);
-      border: 2px solid #333;
+
+    /* ── Arena card ───────────────────────────────────────────── */
+    .arena {
+      width: 100%;
+      max-width: 640px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       overflow: hidden;
     }
+
+    .arena-header {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* macOS-style traffic lights — pure decoration, fits the "terminal" vibe */
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red    { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green  { background: #28c840; }
+
+    .arena-title {
+      margin-left: 0.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .arena-body { padding: 1.75rem; }
+
+    /* ── Fighter inputs ───────────────────────────────────────── */
+    .fighters {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1rem;
+      align-items: end;
+      margin-bottom: 1.5rem;
+    }
+
+    .vs-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--yellow);
+      text-align: center;
+      padding-bottom: 0.25rem;
+    }
+
+    .fighter label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .fighter.p1 label { color: var(--green); }
+    .fighter.p2 label { color: var(--red);   }
+
+    .fighter input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      padding: 0.55rem 0.75rem;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    .fighter input::placeholder { color: var(--muted); opacity: 0.6; }
+
+    .fighter.p1 input:focus { border-color: var(--green); }
+    .fighter.p2 input:focus { border-color: var(--red);   }
+
+    /* ── Battle button ────────────────────────────────────────── */
+    #battle-btn {
+      width: 100%;
+      background: var(--green);
+      color: #0d1117;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.06em;
+      border: none;
+      border-radius: var(--radius);
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.08s;
+    }
+
+    #battle-btn:hover  { background: #4ae168; }
+    #battle-btn:active { transform: scale(0.98); }
+    #battle-btn:disabled {
+      background: var(--green-dim);
+      color: var(--muted);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── Results area ─────────────────────────────────────────── */
+    #results {
+      margin-top: 1.5rem;
+      display: none;
+    }
+
+    #results.visible { display: block; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin-bottom: 1.25rem;
+    }
+
+    /* Health bars */
+    .health-bars { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem; }
+
+    .hp-row { display: grid; grid-template-columns: 90px 1fr 2.5rem; align-items: center; gap: 0.6rem; }
+
+    .hp-name {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .hp-track {
+      height: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .hp-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.6s ease;
+    }
+
+    .p1 .hp-fill { background: var(--green); }
+    .p2 .hp-fill { background: var(--red);   }
+
+    .hp-val {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    /* Battle log */
+    .log-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    #battle-log {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.7;
+      min-height: 120px;
+      max-height: 220px;
+      overflow-y: auto;
+      color: var(--text);
+    }
+
+    .log-line { display: block; }
+    .log-line.hit    { color: var(--red);    }
+    .log-line.heal   { color: var(--green);  }
+    .log-line.system { color: var(--muted);  }
+    .log-line.winner { color: var(--yellow); font-weight: 700; }
+
+    /* Winner banner */
+    #winner-banner {
+      margin-top: 1rem;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--yellow);
+      display: none;
+    }
+
+    #winner-banner.visible {
+      display: block;
+      animation: pulse 1.5s ease infinite;
+    }
+
+    /* ── Power-up display area (stub, wired to engine later) ──── */
+    #powerup-area {
+      margin-top: 1rem;
+      min-height: 36px;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .powerup-chip {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .powerup-chip:hover { border-color: var(--yellow); color: var(--yellow); }
+
+    /* ── Animations ───────────────────────────────────────────── */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.55; }
+    }
+
+    @keyframes glow-green {
+      0%, 100% { box-shadow: 0 0 0px rgba(57, 211, 83, 0); }
+      50%       { box-shadow: 0 0 12px rgba(57, 211, 83, 0.5); }
+    }
+
+    @keyframes glow-red {
+      0%, 100% { box-shadow: 0 0 0px rgba(248, 81, 73, 0); }
+      50%       { box-shadow: 0 0 12px rgba(248, 81, 73, 0.5); }
+    }
+
+    .glowing-p1 { animation: glow-green 0.8s ease 3; }
+    .glowing-p2 { animation: glow-red   0.8s ease 3; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+
+    /* ── Footer ───────────────────────────────────────────────── */
+    footer {
+      margin-top: 2rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: center;
+    }
   </style>
+</head>
+<body>
+
+  <header>
+    <div class="wordmark">Mona<span>Mayhem</span></div>
+    <p class="tagline">GitHub Contribution Battle Arena</p>
+  </header>
+
+  <main class="arena" role="main">
+
+    <!-- Terminal-style title bar -->
+    <div class="arena-header" aria-hidden="true">
+      <div class="dot dot-red"></div>
+      <div class="dot dot-yellow"></div>
+      <div class="dot dot-green"></div>
+      <span class="arena-title">battle.ts — running</span>
+    </div>
+
+    <div class="arena-body">
+
+      <!-- Fighter inputs -->
+      <div class="fighters">
+        <div class="fighter p1">
+          <label for="p1-input">Player 1</label>
+          <input
+            id="p1-input"
+            type="text"
+            placeholder="github username"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Player 1 GitHub username"
+          />
+        </div>
+
+        <div class="vs-badge">VS</div>
+
+        <div class="fighter p2">
+          <label for="p2-input">Player 2</label>
+          <input
+            id="p2-input"
+            type="text"
+            placeholder="github username"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Player 2 GitHub username"
+          />
+        </div>
+      </div>
+
+      <!-- Battle trigger -->
+      <button id="battle-btn" aria-label="Start battle">
+        ⚔ BATTLE
+      </button>
+
+      <!-- Results area (hidden until battle runs) -->
+      <section id="results" aria-live="polite" aria-label="Battle results">
+        <hr class="divider" />
+
+        <!-- HP bars -->
+        <div class="health-bars">
+          <div class="hp-row p1">
+            <span class="hp-name" id="p1-hp-name">Player 1</span>
+            <div class="hp-track" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Player 1 HP">
+              <div class="hp-fill" id="p1-hp-fill" style="width: 100%"></div>
+            </div>
+            <span class="hp-val" id="p1-hp-val">100</span>
+          </div>
+          <div class="hp-row p2">
+            <span class="hp-name" id="p2-hp-name">Player 2</span>
+            <div class="hp-track" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Player 2 HP">
+              <div class="hp-fill" id="p2-hp-fill" style="width: 100%"></div>
+            </div>
+            <span class="hp-val" id="p2-hp-val">100</span>
+          </div>
+        </div>
+
+        <!-- Power-up spawn zone (wired to engine in engine.ts) -->
+        <div id="powerup-area" aria-label="Active power-ups"></div>
+
+        <!-- Turn-by-turn log -->
+        <p class="log-label">Battle Log</p>
+        <div id="battle-log" role="log" aria-live="polite"></div>
+
+        <!-- Winner announcement -->
+        <div id="winner-banner" role="status"></div>
+      </section>
+
+    </div><!-- /arena-body -->
+  </main>
+
+  
+
+  <script>
+    // ── DOM refs ──────────────────────────────────────────────────
+    const p1Input      = document.getElementById('p1-input');
+    const p2Input      = document.getElementById('p2-input');
+    const battleBtn    = document.getElementById('battle-btn');
+    const resultsEl    = document.getElementById('results');
+    const battleLog    = document.getElementById('battle-log');
+    const winnerBanner = document.getElementById('winner-banner');
+    const powerupArea  = document.getElementById('powerup-area');
+
+    const p1HpFill = document.getElementById('p1-hp-fill');
+    const p2HpFill = document.getElementById('p2-hp-fill');
+    const p1HpVal  = document.getElementById('p1-hp-val');
+    const p2HpVal  = document.getElementById('p2-hp-val');
+    const p1HpName = document.getElementById('p1-hp-name');
+    const p2HpName = document.getElementById('p2-hp-name');
+    const p1Track  = p1HpFill.closest('[role=progressbar]');
+    const p2Track  = p2HpFill.closest('[role=progressbar]');
+
+    // ── Helpers ───────────────────────────────────────────────────
+    function log(text, cls = '') {
+      const line = document.createElement('span');
+      line.className = `log-line ${cls}`;
+      line.textContent = text;
+      battleLog.appendChild(line);
+      battleLog.scrollTop = battleLog.scrollHeight;
+    }
+
+    function setHP(player, hp, maxHp = 100) {
+      const pct   = Math.max(0, Math.round((hp / maxHp) * 100));
+      const fill  = player === 1 ? p1HpFill : p2HpFill;
+      const val   = player === 1 ? p1HpVal  : p2HpVal;
+      const track = player === 1 ? p1Track   : p2Track;
+      fill.style.width = `${pct}%`;
+      val.textContent  = hp;
+      track.setAttribute('aria-valuenow', hp);
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ── Fetch contributions via stub API ──────────────────────────
+    async function fetchContributions(username) {
+      try {
+        const res  = await fetch(`/api/contributions/${encodeURIComponent(username)}`);
+        const data = await res.json();
+        // Stub API returns { contributions: number }; fall back to random
+        return typeof data.contributions === 'number'
+          ? data.contributions
+          : Math.floor(Math.random() * 800) + 50;
+      } catch {
+        // Offline / stub not yet implemented — use random for demo
+        return Math.floor(Math.random() * 800) + 50;
+      }
+    }
+
+    // ── Battle simulation ─────────────────────────────────────────
+    // This wires directly to the engine/effects interfaces defined in POWERUP_PLAN.md.
+    // Replace the dummy logic below with real engine calls as those modules land.
+
+    async function runBattle(p1Name, p2Name, p1Contribs, p2Contribs) {
+      // Stat scaling: contributions → base damage per turn (5–30)
+      const scale = (c) => 5 + Math.min(25, Math.floor(c / 40));
+      const p1Dmg = scale(p1Contribs);
+      const p2Dmg = scale(p2Contribs);
+      const MAX_HP = 100;
+
+      let p1HP = MAX_HP, p2HP = MAX_HP;
+      let turn = 0;
+
+      log(`── Battle start ──`, 'system');
+      log(`${p1Name}: ${p1Contribs} contributions  |  ATK ${p1Dmg}`, 'system');
+      log(`${p2Name}: ${p2Contribs} contributions  |  ATK ${p2Dmg}`, 'system');
+      log(``, 'system');
+
+      // ---- TODO: replace with powerUpEngine.updateSpawns(battleState) ----
+      // Stub: drop a random power-up chip into the UI as a placeholder
+      spawnPowerUpStub(p1Name, p2Name);
+
+      while (p1HP > 0 && p2HP > 0 && turn < 30) {
+        turn++;
+        await sleep(420);
+
+        // ---- TODO: call effects.applyActiveEffects() here ----
+        const d2 = Math.max(1, p1Dmg + Math.floor(Math.random() * 6) - 2);
+        p2HP = Math.max(0, p2HP - d2);
+        setHP(2, p2HP, MAX_HP);
+        log(`Turn ${turn}: ${p1Name} hits ${p2Name} for ${d2} dmg  (${p2HP} HP left)`, 'hit');
+
+        if (p2HP <= 0) break;
+        await sleep(280);
+
+        const d1 = Math.max(1, p2Dmg + Math.floor(Math.random() * 6) - 2);
+        p1HP = Math.max(0, p1HP - d1);
+        setHP(1, p1HP, MAX_HP);
+        log(`Turn ${turn}: ${p2Name} hits ${p1Name} for ${d1} dmg  (${p1HP} HP left)`, 'hit');
+
+        // ---- TODO: powerUpEngine.updateTimers(battleState) ----
+      }
+
+      await sleep(400);
+      const winner = p1HP > p2HP ? p1Name : p2Name;
+      log(``, 'system');
+      log(`🏆  ${winner} wins!`, 'winner');
+
+      winnerBanner.textContent = `🏆  ${winner} wins!`;
+      winnerBanner.classList.add('visible');
+    }
+
+    // ── Power-up stub (placeholder until engine.ts is wired) ─────
+    const POWERUP_STUBS = [
+      { id: 'health_boost', label: '❤ Health Boost' },
+      { id: 'attack_surge', label: '⚡ Attack Surge' },
+      { id: 'shield',       label: '🛡 Shield'        },
+    ];
+
+    function spawnPowerUpStub(p1Name, p2Name) {
+      powerupArea.innerHTML = '';
+      const pu = POWERUP_STUBS[Math.floor(Math.random() * POWERUP_STUBS.length)];
+      const chip = document.createElement('button');
+      chip.className = 'powerup-chip';
+      chip.textContent = pu.label;
+      chip.title = `Click to collect for ${p1Name}`;
+      chip.addEventListener('click', () => {
+        log(`✦ ${p1Name} collected ${pu.label}!`, 'heal');
+        chip.remove();
+        // TODO: collectPowerUp(battleState, pu.id, 'p1') from engine.ts
+      });
+      powerupArea.appendChild(chip);
+    }
+
+    // ── Battle button handler ─────────────────────────────────────
+    battleBtn.addEventListener('click', async () => {
+      const p1Name = p1Input.value.trim();
+      const p2Name = p2Input.value.trim();
+
+      if (!p1Name || !p2Name) {
+        p1Name ? p2Input.focus() : p1Input.focus();
+        return;
+      }
+
+      // Reset UI
+      battleBtn.disabled  = true;
+      battleBtn.textContent = '⏳ Fetching data…';
+      battleLog.innerHTML = '';
+      winnerBanner.classList.remove('visible');
+      powerupArea.innerHTML = '';
+      setHP(1, 100); setHP(2, 100);
+      p1HpName.textContent = p1Name;
+      p2HpName.textContent = p2Name;
+      resultsEl.classList.add('visible');
+
+      // Fetch contribution counts
+      const [p1C, p2C] = await Promise.all([
+        fetchContributions(p1Name),
+        fetchContributions(p2Name),
+      ]);
+
+      battleBtn.textContent = '⚔ BATTLE';
+
+      await runBattle(p1Name, p2Name, p1C, p2C);
+
+      battleBtn.disabled    = false;
+      battleBtn.textContent = '⚔ BATTLE AGAIN';
+    });
+
+    // Allow Enter key on either input to start the battle
+    [p1Input, p2Input].forEach(el =>
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter') battleBtn.click();
+      })
+    );
+  </script>
+
 </body>
 </html>

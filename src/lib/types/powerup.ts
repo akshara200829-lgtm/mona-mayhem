@@ -225,3 +225,16 @@ export const POWERUP_CONFIG = {
    */
   defaultCooldownTurns: 1,
 } as const;
+/**
+ * Match Record schema for history tracking
+ */
+export interface MatchRecord {
+  id: string;
+  timestamp: string;
+  winner: string;
+  player1Name: string;
+  player1FinalHp: number;
+  player2Name: string;
+  player2FinalHp: number;
+  totalTurns: number;
+}
