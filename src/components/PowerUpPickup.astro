@@ -1,0 +1,94 @@
+---
+/**
+ * PowerUpPickup Component
+ * Displays a spawned power-up on the arena.
+ * Clicking it triggers collection mechanics.
+ */
+import type { SpawnedPowerUp } from "../lib/types/powerup";
+import { getPowerUpDefinition } from "../lib/powerups/registry";
+
+interface Props {
+  powerUp: SpawnedPowerUp;
+}
+
+const { powerUp } = Astro.props;
+const definition = getPowerUpDefinition(powerUp.type);
+---
+
+<div
+  class="powerup-pickup"
+  data-powerup-id={powerUp.id}
+  style={`left: ${powerUp.position.x}px; top: ${powerUp.position.y}px; border-color: ${definition?.arcadeTheme.color || '#333'};`}
+  title={definition?.description}
+>
+  <div class="powerup-icon">
+    {definition?.arcadeTheme.icon ?? "⚡"}
+  </div>
+  <div class="powerup-name">
+    {definition?.name}
+  </div>
+</div>
+
+<script>
+  function setupPowerUps() {
+    document.querySelectorAll(".powerup-pickup").forEach((element) => {
+      // Clean duplicate handlers before mounting new elements
+      element.removeEventListener("click", handlePowerUpClick);
+      element.addEventListener("click", handlePowerUpClick);
+    });
+  }
+
+  function handlePowerUpClick(event: Event) {
+    const element = event.currentTarget as HTMLElement;
+    const id = element.getAttribute("data-powerup-id");
+
+    if (!id) return;
+
+    window.dispatchEvent(
+      new CustomEvent("collectPowerUp", {
+        detail: { powerUpId: id },
+      })
+    );
+
+    element.remove();
+  }
+
+  // Bind to dynamic layout changes during Astro page adjustments
+  document.addEventListener("DOMContentLoaded", setupPowerUps);
+</script>
+
+<style>
+  .powerup-pickup {
+    position: absolute;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(20, 20, 20, 0.85);
+    border: 3px solid #333;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    animation: powerupPulse 1.5s infinite ease-in-out;
+  }
+
+  .powerup-icon {
+    font-size: 28px;
+  }
+
+  .powerup-name {
+    font-size: 10px;
+    margin-top: 2px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px black;
+  }
+
+  @keyframes powerupPulse {
+    0% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 255, 255, 0.1); }
+    50% { transform: scale(1.08); box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
+    100% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 255, 255, 0.1); }
+  }
+</style>

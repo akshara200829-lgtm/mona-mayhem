@@ -1,0 +1,98 @@
+---
+/**
+ * ActiveEffects Component
+ * Shows currently active buffs on a player.
+ */
+import type { ActivePowerUp } from "../lib/types/powerup";
+import { getPowerUpDefinition } from "../lib/powerups/registry";
+
+interface Props {
+  effects: ActivePowerUp[];
+}
+
+const { effects } = Astro.props;
+---
+
+<div class="active-effects">
+  {effects.length === 0 ? (
+    <span class="no-effects">No active effects</span>
+  ) : (
+    effects.map((effect) => {
+      const definition = getPowerUpDefinition(effect.type);
+      const turnsRemaining = effect.expiresAt - effect.appliedAt;
+
+      return (
+        <div
+          class="effect-card"
+          style={`border-left: 3px solid ${definition?.arcadeTheme.color || '#555'}`}
+          title={definition?.description}
+        >
+          <div class="card-body">
+            <span class="effect-icon">{definition?.arcadeTheme.icon}</span>
+            <div class="effect-info">
+              <span class="effect-title">{definition?.name}</span>
+              <small class="effect-duration">{turnsRemaining} turn{turnsRemaining > 1 ? 's' : ''}</small>
+            </div>
+          </div>
+        </div>
+      );
+    })
+  )}
+</div>
+
+<style>
+  .active-effects {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    min-height: 40px;
+  }
+
+  .no-effects {
+    font-size: 12px;
+    color: #666;
+    font-style: italic;
+  }
+
+  .effect-card {
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    animation: pulse 2s infinite ease-in-out;
+  }
+
+  .card-body {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .effect-icon {
+    font-size: 18px;
+  }
+
+  .effect-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .effect-title {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .effect-duration {
+    font-size: 10px;
+    color: #aaa;
+  }
+
+  @keyframes pulse {
+    0% { opacity: 0.85; }
+    50% { opacity: 1; }
+    100% { opacity: 0.85; }
+  }
+</style>

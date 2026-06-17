@@ -1,17 +1,267 @@
 ---
+import PowerUpPickup from "../components/PowerUpPickup.astro";
+import ActiveEffects from "../components/ActiveEffects.astro";
 
+import { initializeBattleState } from "../lib/game/battleState";
+import { updateSpawns, getSpawnedPowerUps, getPlayerActivePowerUps } from "../lib/powerups/engine";
+
+// 1. Initialize core state data during Astro's Server-Side Compilation Phase
+let initialBattleState = initializeBattleState("Player 1", "Player 2");
+
+// Seed initial power-up drops for Turn 0
+initialBattleState = updateSpawns(initialBattleState);
+
+let spawnedPowerUps = getSpawnedPowerUps(initialBattleState);
+let player1Effects = getPlayerActivePowerUps(initialBattleState, initialBattleState.player1.id);
+let player2Effects = getPlayerActivePowerUps(initialBattleState, initialBattleState.player2.id);
 ---
 
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Mona Mayhem</title>
-	</head>
-	<body>
-		<h1>Mona Mayhem</h1>
-		<p>Welcome to Mona Mayhem! Time to build a GitHub Contribution Battle Arena.</p>
-	</body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Mona Mayhem - Power-Up System Demo</title>
+</head>
+<body>
+
+  <main class="arena" id="arena-manager" data-initial-state={JSON.stringify(initialBattleState)}>
+    <h1>⚔️ Mona Mayhem Arena</h1>
+
+    <div class="controls-panel">
+      <button id="step-turn-btn">💥 Advance Turn (Take Turn Damage)</button>
+      <div class="turn-counter" id="global-turn-display">Current Turn: 0</div>
+    </div>
+
+    <section class="players-grid">
+      <div class="player-card" data-player-id="player-1">
+        <h2>{initialBattleState.player1.username}</h2>
+        <div class="hp-bar-container">
+          <div class="hp-text" id="p1-hp">HP: {initialBattleState.player1.hp} / {initialBattleState.player1.maxHp}</div>
+        </div>
+        <div class="effects-wrapper">
+          <h3>Active Buffs:</h3>
+          <div id="p1-active-effects">
+            <ActiveEffects effects={player1Effects} />
+          </div>
+        </div>
+      </div>
+
+      <div class="player-card" data-player-id="player-2">
+        <h2>{initialBattleState.player2.username}</h2>
+        <div class="hp-bar-container">
+          <div class="hp-text" id="p2-hp">HP: {initialBattleState.player2.hp} / {initialBattleState.player2.maxHp}</div>
+        </div>
+        <div class="effects-wrapper">
+          <h3>Active Buffs:</h3>
+          <div id="p2-active-effects">
+            <ActiveEffects effects={player2Effects} />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="battle-arena" class="battle-arena">
+      {spawnedPowerUps.map((powerUp) => (
+        <PowerUpPickup powerUp={powerUp} />
+      ))}
+    </section>
+  </main>
+
+  <script>
+    import { collectPowerUp, updateTimers, updateSpawns } from "../lib/powerups/engine";
+    import { updatePlayerHP, nextTurn } from "../lib/game/battleState";
+    import { getPowerUpDefinition } from "../lib/powerups/registry";
+    import type { BattleState } from "../lib/types/powerup";
+
+    const manager = document.getElementById("arena-manager");
+    
+    // Ingest state safely from Server Side Render block
+    let currentState: BattleState = JSON.parse(manager!.getAttribute("data-initial-state")!);
+
+    /**
+     * Client UI Synchronization Engine
+     * Dynamically repopulates layout nodes, HP meters, and active effect cards 
+     * directly into the browser DOM layout whenever actions occur.
+     */
+    function renderStateToDOM() {
+      // 1. Sync Text Displays
+      const p1HpText = document.getElementById("p1-hp");
+      const p2HpText = document.getElementById("p2-hp");
+      const turnText = document.getElementById("global-turn-display");
+
+      if (p1HpText) p1HpText.textContent = `HP: ${currentState.player1.hp} / ${currentState.player1.maxHp}`;
+      if (p2HpText) p2HpText.textContent = `HP: ${currentState.player2.hp} / ${currentState.player2.maxHp}`;
+      if (turnText) turnText.textContent = `Current Turn: ${currentState.currentTurn}`;
+
+      // 2. Reactively Re-Render Buff Badge Cards based on current active state lists
+      renderActiveEffectsForPlayer("player-1", "p1-active-effects");
+      renderActiveEffectsForPlayer("player-2", "p2-active-effects");
+
+      // 3. Reactively Re-Render New Arena Items if spawned
+      renderArenaSpawnedItems();
+    }
+
+    function renderActiveEffectsForPlayer(playerId: string, containerId: string) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const items = currentState.activePowerUps.filter(p => p.playerId === playerId);
+      
+      if (items.length === 0) {
+        container.innerHTML = `<span style="color: #666; font-style: italic; font-size: 12px;">No active effects</span>`;
+        return;
+      }
+
+      container.innerHTML = `<div style="display: flex; gap: 10px;">` + 
+        items.map(effect => {
+          const def = getPowerUpDefinition(effect.type);
+          const turnsLeft = effect.expiresAt - currentState.currentTurn;
+          return `
+            <div style="padding: 8px; border-radius: 6px; background: #1a1a1a; border-left: 3px solid ${def?.arcadeTheme.color || '#555'}; display: flex; flex-direction: column; font-size: 12px;">
+              <span>${def?.arcadeTheme.icon} <strong>${def?.name}</strong></span>
+              <small style="color: #aaa;">${turnsLeft} turn${turnsLeft > 1 ? 's' : ''} left</small>
+            </div>
+          `;
+        }).join('') + `</div>`;
+    }
+
+    function renderArenaSpawnedItems() {
+      const arena = document.getElementById("battle-arena");
+      if (!arena) return;
+
+      // Only draw items that haven't been picked up and haven't expired yet
+      const existingPickups = arena.querySelectorAll('.powerup-pickup');
+      existingPickups.forEach(el => el.remove());
+
+      currentState.spawnedPowerUps.forEach(pu => {
+        const def = getPowerUpDefinition(pu.type);
+        const div = document.createElement('div');
+        div.className = 'powerup-pickup';
+        div.setAttribute('data-powerup-id', pu.id);
+        div.style.left = `${pu.position.x}px`;
+        div.style.top = `${pu.position.y}px`;
+        div.style.borderColor = def?.arcadeTheme.color || '#333';
+        div.title = def?.description || '';
+        
+        div.innerHTML = `
+          <div style="font-size: 28px;">${def?.arcadeTheme.icon}</div>
+          <div style="font-size: 10px; margin-top: 2px; font-weight: bold;">${def?.name}</div>
+        `;
+
+        div.addEventListener('click', () => {
+          window.dispatchEvent(new CustomEvent("collectPowerUp", { detail: { powerUpId: pu.id } }));
+          div.remove();
+        });
+
+        arena.appendChild(div);
+      });
+    }
+
+    // INTERACTIVE LINK 1: Turn Advance + Random Damage Sim
+    document.getElementById("step-turn-btn")?.addEventListener("click", () => {
+      currentState = nextTurn(currentState);
+      
+      // Inflict 15 structural damage onto both participants to test health boost limits
+      currentState = updatePlayerHP(currentState, "player-1", -15);
+      currentState = updatePlayerHP(currentState, "player-2", -15);
+      
+      // Update our spawn manager rules checks (Interval checks run cleanly here)
+      currentState = updateSpawns(currentState);
+      currentState = updateTimers(currentState);
+
+      console.log(`[Turn Step] Current Match Turn Log: ${currentState.currentTurn}`, currentState);
+      renderStateToDOM();
+    });
+
+    // INTERACTIVE LINK 2: Power Up Interactive Clicking Capture
+    window.addEventListener("collectPowerUp", (event) => {
+      const customEvent = event as CustomEvent;
+      const powerUpId = customEvent.detail.powerUpId;
+
+      console.log("-> Intercepted item pick up action:", powerUpId);
+
+      // Player 1 claims item
+      currentState = collectPowerUp(currentState, powerUpId, "player-1");
+      
+      console.log("-> State post-collection calculations:", currentState);
+      renderStateToDOM();
+    });
+  </script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #101010;
+      color: white;
+      font-family: system-ui, sans-serif;
+    }
+    .arena {
+      padding: 40px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .controls-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+    #step-turn-btn {
+      background: #ffdd00;
+      color: #101010;
+      border: none;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(255, 221, 0, 0.2);
+    }
+    #step-turn-btn:active {
+      transform: scale(0.97);
+    }
+    .turn-counter {
+      font-size: 14px;
+      color: #aaa;
+      font-weight: bold;
+    }
+    .players-grid {
+      display: flex;
+      justify-content: space-between;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+    .player-card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      padding: 20px;
+      border-radius: 12px;
+      flex: 1;
+    }
+    .hp-text {
+      font-size: 20px;
+      font-weight: bold;
+      color: #ff4444;
+      margin-bottom: 15px;
+    }
+    .effects-wrapper h3 {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    .battle-arena {
+      position: relative;
+      height: 500px;
+      border-radius: 16px;
+      background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%);
+      border: 2px solid #333;
+      overflow: hidden;
+    }
+  </style>
+</body>
 </html>
