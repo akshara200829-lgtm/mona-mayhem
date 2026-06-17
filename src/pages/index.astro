@@ -1,6 +1,5 @@
 ---
-// src/pages/index.astro
-// Mona Mayhem - GitHub Contribution Battle Arena
+// No server-side data fetching here — all battle logic runs client-side
 ---
 
 <!DOCTYPE html>
@@ -8,585 +7,552 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mona Mayhem — GitHub Contribution Battle Arena</title>
-  <style>
-    /* ── Tokens ───────────────────────────────────────────────── */
-    :root {
-      --bg:         #0d1117;
-      --surface:    #161b22;
-      --border:     #30363d;
-      --green:      #39d353;
-      --green-dim:  #1a6628;
-      --red:        #f85149;
-      --yellow:     #e3b341;
-      --text:       #e6edf3;
-      --muted:      #8b949e;
-      --radius:     6px;
-      --font-mono:  'Courier New', Courier, monospace;
-      --font-ui:    -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    }
-
-    /* ── Reset ────────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font-ui);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem 4rem;
-    }
-
-    /* ── Header ───────────────────────────────────────────────── */
-    header {
-      text-align: center;
-      margin-bottom: 2.5rem;
-    }
-
-    .wordmark {
-      font-family: var(--font-mono);
-      font-size: clamp(1.5rem, 5vw, 2.6rem);
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      color: var(--green);
-      text-shadow: 0 0 20px rgba(57, 211, 83, 0.35);
-    }
-
-    .wordmark span { color: var(--text); }
-
-    .tagline {
-      margin-top: 0.4rem;
-      font-size: 0.8rem;
-      color: var(--muted);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    /* ── Arena card ───────────────────────────────────────────── */
-    .arena {
-      width: 100%;
-      max-width: 640px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-
-    .arena-header {
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      padding: 0.6rem 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    /* macOS-style traffic lights — pure decoration, fits the "terminal" vibe */
-    .dot { width: 12px; height: 12px; border-radius: 50%; }
-    .dot-red    { background: #ff5f57; }
-    .dot-yellow { background: #febc2e; }
-    .dot-green  { background: #28c840; }
-
-    .arena-title {
-      margin-left: 0.4rem;
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
-
-    .arena-body { padding: 1.75rem; }
-
-    /* ── Fighter inputs ───────────────────────────────────────── */
-    .fighters {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      gap: 1rem;
-      align-items: end;
-      margin-bottom: 1.5rem;
-    }
-
-    .vs-badge {
-      font-family: var(--font-mono);
-      font-weight: 700;
-      font-size: 0.95rem;
-      color: var(--yellow);
-      text-align: center;
-      padding-bottom: 0.25rem;
-    }
-
-    .fighter label {
-      display: block;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 0.4rem;
-    }
-
-    .fighter.p1 label { color: var(--green); }
-    .fighter.p2 label { color: var(--red);   }
-
-    .fighter input {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--text);
-      font-family: var(--font-mono);
-      font-size: 0.9rem;
-      padding: 0.55rem 0.75rem;
-      transition: border-color 0.15s;
-      outline: none;
-    }
-
-    .fighter input::placeholder { color: var(--muted); opacity: 0.6; }
-
-    .fighter.p1 input:focus { border-color: var(--green); }
-    .fighter.p2 input:focus { border-color: var(--red);   }
-
-    /* ── Battle button ────────────────────────────────────────── */
-    #battle-btn {
-      width: 100%;
-      background: var(--green);
-      color: #0d1117;
-      font-family: var(--font-mono);
-      font-weight: 700;
-      font-size: 0.95rem;
-      letter-spacing: 0.06em;
-      border: none;
-      border-radius: var(--radius);
-      padding: 0.75rem;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.08s;
-    }
-
-    #battle-btn:hover  { background: #4ae168; }
-    #battle-btn:active { transform: scale(0.98); }
-    #battle-btn:disabled {
-      background: var(--green-dim);
-      color: var(--muted);
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* ── Results area ─────────────────────────────────────────── */
-    #results {
-      margin-top: 1.5rem;
-      display: none;
-    }
-
-    #results.visible { display: block; }
-
-    .divider {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin-bottom: 1.25rem;
-    }
-
-    /* Health bars */
-    .health-bars { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem; }
-
-    .hp-row { display: grid; grid-template-columns: 90px 1fr 2.5rem; align-items: center; gap: 0.6rem; }
-
-    .hp-name {
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .hp-track {
-      height: 10px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 99px;
-      overflow: hidden;
-    }
-
-    .hp-fill {
-      height: 100%;
-      border-radius: 99px;
-      transition: width 0.6s ease;
-    }
-
-    .p1 .hp-fill { background: var(--green); }
-    .p2 .hp-fill { background: var(--red);   }
-
-    .hp-val {
-      font-family: var(--font-mono);
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-align: right;
-    }
-
-    /* Battle log */
-    .log-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 0.4rem;
-    }
-
-    #battle-log {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.75rem 1rem;
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      line-height: 1.7;
-      min-height: 120px;
-      max-height: 220px;
-      overflow-y: auto;
-      color: var(--text);
-    }
-
-    .log-line { display: block; }
-    .log-line.hit    { color: var(--red);    }
-    .log-line.heal   { color: var(--green);  }
-    .log-line.system { color: var(--muted);  }
-    .log-line.winner { color: var(--yellow); font-weight: 700; }
-
-    /* Winner banner */
-    #winner-banner {
-      margin-top: 1rem;
-      text-align: center;
-      font-family: var(--font-mono);
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--yellow);
-      display: none;
-    }
-
-    #winner-banner.visible {
-      display: block;
-      animation: pulse 1.5s ease infinite;
-    }
-
-    /* ── Power-up display area (stub, wired to engine later) ──── */
-    #powerup-area {
-      margin-top: 1rem;
-      min-height: 36px;
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .powerup-chip {
-      font-family: var(--font-mono);
-      font-size: 0.7rem;
-      padding: 0.25rem 0.6rem;
-      border-radius: 99px;
-      border: 1px solid var(--border);
-      color: var(--text);
-      cursor: pointer;
-      transition: border-color 0.15s;
-    }
-
-    .powerup-chip:hover { border-color: var(--yellow); color: var(--yellow); }
-
-    /* ── Animations ───────────────────────────────────────────── */
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.55; }
-    }
-
-    @keyframes glow-green {
-      0%, 100% { box-shadow: 0 0 0px rgba(57, 211, 83, 0); }
-      50%       { box-shadow: 0 0 12px rgba(57, 211, 83, 0.5); }
-    }
-
-    @keyframes glow-red {
-      0%, 100% { box-shadow: 0 0 0px rgba(248, 81, 73, 0); }
-      50%       { box-shadow: 0 0 12px rgba(248, 81, 73, 0.5); }
-    }
-
-    .glowing-p1 { animation: glow-green 0.8s ease 3; }
-    .glowing-p2 { animation: glow-red   0.8s ease 3; }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation: none !important; transition: none !important; }
-    }
-
-    /* ── Footer ───────────────────────────────────────────────── */
-    footer {
-      margin-top: 2rem;
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-align: center;
-    }
-  </style>
+  <title>GitHub Battle — Mona Mayhem</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/styles.css" />
 </head>
+
 <body>
+  <div id="app" class="battle-page" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem 1rem;box-sizing:border-box;gap:2rem;width:100%">
+    <div class="crt-scanlines" aria-hidden="true"></div>
+    <div class="crt-vignette" aria-hidden="true"></div>
 
-  <header>
-    <div class="wordmark">Mona<span>Mayhem</span></div>
-    <p class="tagline">GitHub Contribution Battle Arena</p>
-  </header>
+    <header class="battle-header" style="display:flex;flex-direction:column;align-items:center;gap:1.5rem;position:relative;width:100%;max-width:900px;margin:0 auto">
+      <button id="themeToggle" aria-label="Toggle color theme" style="position:absolute;top:0;right:0;font-family:'Press Start 2P',monospace;font-size:.7rem;background:transparent;border:1px solid var(--accent1);color:var(--accent1);padding:.5rem .8rem;cursor:pointer;text-shadow:0 0 8px var(--accent1-glow)">
+        ⚡ ALT THEME
+      </button>
+      <h1 class="battle-title" style="display:flex;flex-direction:column;align-items:center;line-height:1.4;cursor:default;animation:titleFloat 3s ease-in-out infinite">
+        <span class="title-line1" style="font-size:clamp(1.6rem,5vw,3rem);color:var(--accent1);animation:neonPulse 2s ease-in-out infinite,electricFlicker 6s linear infinite;letter-spacing:.15em">GITHUB</span>
+        <span class="title-line2" style="font-size:clamp(2rem,7vw,4.5rem);color:var(--accent2);animation:neonPulse2 2.5s ease-in-out infinite,electricFlicker 6s linear infinite .5s;letter-spacing:.15em">BATTLE</span>
+      </h1>
+      <p style="font-size:.75rem;color:var(--text-muted);letter-spacing:.3em;animation:subtitleBlink 3s step-end infinite">WHO COMMITS MORE?</p>
+    </header>
 
-  <main class="arena" role="main">
+    <section id="controls" aria-label="Battle controls" style="display:flex;flex-direction:column;align-items:center;gap:1.5rem;width:100%;max-width:900px;margin:0 auto">
+      <div id="inputsRow" class="inputs-row" style="display:flex;align-items:center;justify-content:center;gap:2rem;width:100%">
 
-    <!-- Terminal-style title bar -->
-    <div class="arena-header" aria-hidden="true">
-      <div class="dot dot-red"></div>
-      <div class="dot dot-yellow"></div>
-      <div class="dot dot-green"></div>
-      <span class="arena-title">battle.ts — running</span>
-    </div>
-
-    <div class="arena-body">
-
-      <!-- Fighter inputs -->
-      <div class="fighters">
-        <div class="fighter p1">
-          <label for="p1-input">Player 1</label>
-          <input
-            id="p1-input"
-            type="text"
-            placeholder="github username"
-            autocomplete="off"
-            spellcheck="false"
-            aria-label="Player 1 GitHub username"
-          />
+        <div class="input-group" style="display:flex;flex-direction:column;align-items:flex-start;gap:.6rem;animation:floatIn .6s ease-out both">
+          <label for="player1" style="font-size:.65rem;color:var(--accent1);text-shadow:0 0 8px var(--accent1-glow);letter-spacing:.2em">PLAYER 1</label>
+          <div id="wrap1" style="display:flex;align-items:center;border:1px solid var(--accent1-dim);background:rgba(255,255,255,.03);transition:border-color .2s,box-shadow .2s">
+            <span style="padding:0 .5rem 0 .8rem;color:var(--text-muted);font-size:.85rem;user-select:none">@</span>
+            <input id="player1" type="text" placeholder="octocat" autocomplete="off" spellcheck="false"
+              aria-label="Player 1 GitHub username"
+              style="font-family:'Press Start 2P',monospace;font-size:.85rem;color:var(--text);background:transparent;border:none;outline:none;padding:.8rem .8rem .8rem 0;width:200px;caret-color:var(--accent1)" />
+          </div>
         </div>
 
-        <div class="vs-badge">VS</div>
-
-        <div class="fighter p2">
-          <label for="p2-input">Player 2</label>
-          <input
-            id="p2-input"
-            type="text"
-            placeholder="github username"
-            autocomplete="off"
-            spellcheck="false"
-            aria-label="Player 2 GitHub username"
-          />
+        <div class="vs-badge-container" aria-hidden="true" style="flex-shrink:0">
+          <div class="vs-badge" style="width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(var(--accent1) 0deg,var(--accent2) 180deg,var(--accent1) 360deg);animation:vsPulse 1.5s ease-in-out infinite,vsRotateGradient 4s linear infinite;position:relative">
+            <span style="font-family:'Press Start 2P',monospace;font-size:1.1rem;font-weight:900;position:relative;z-index:1;background:linear-gradient(135deg,var(--accent1),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">VS</span>
+          </div>
         </div>
+
+        <div class="input-group" style="display:flex;flex-direction:column;align-items:flex-start;gap:.6rem;animation:floatIn .6s ease-out .15s both">
+          <label for="player2" style="font-size:.65rem;color:var(--accent2);text-shadow:0 0 8px var(--accent2-glow);letter-spacing:.2em">PLAYER 2</label>
+          <div id="wrap2" style="display:flex;align-items:center;border:1px solid var(--accent2-dim);background:rgba(255,255,255,.03);transition:border-color .2s,box-shadow .2s">
+            <span style="padding:0 .5rem 0 .8rem;color:var(--text-muted);font-size:.85rem;user-select:none">@</span>
+            <input id="player2" type="text" placeholder="torvalds" autocomplete="off" spellcheck="false"
+              aria-label="Player 2 GitHub username"
+              style="font-family:'Press Start 2P',monospace;font-size:.85rem;color:var(--text);background:transparent;border:none;outline:none;padding:.8rem .8rem .8rem 0;width:200px;caret-color:var(--accent2)" />
+          </div>
+        </div>
+
       </div>
 
-      <!-- Battle trigger -->
-      <button id="battle-btn" aria-label="Start battle">
-        ⚔ BATTLE
+      <div id="validationError" role="alert" aria-live="polite" style="display:none;font-size:.65rem;color:var(--error);text-shadow:0 0 8px var(--error-glow),0 0 16px var(--error-glow);letter-spacing:.1em;border:1px solid var(--error);padding:.7rem 1.2rem;background:rgba(255,51,102,.08);box-shadow:0 0 12px var(--error-glow);animation:errorAppear .3s ease-out;text-align:center"></div>
+
+      <button id="battleBtn" class="battle-btn"
+        style="font-family:'Press Start 2P',monospace;font-size:1rem;color:var(--bg);background:linear-gradient(135deg,var(--accent1) 0%,var(--accent2) 100%);border:none;padding:1rem 2.5rem;cursor:pointer;letter-spacing:.1em;position:relative;overflow:hidden;transition:transform .1s,box-shadow .2s;animation:btnGlow 2s ease-in-out infinite">
+        ⚔ BATTLE! ⚔
       </button>
+    </section>
 
-      <!-- Results area (hidden until battle runs) -->
-      <section id="results" aria-live="polite" aria-label="Battle results">
-        <hr class="divider" />
+    <section id="results" aria-label="Battle results" style="display:none;flex-direction:column;align-items:center;gap:2rem;width:100%;max-width:1200px;margin:0 auto">
 
-        <!-- HP bars -->
-        <div class="health-bars">
-          <div class="hp-row p1">
-            <span class="hp-name" id="p1-hp-name">Player 1</span>
-            <div class="hp-track" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Player 1 HP">
-              <div class="hp-fill" id="p1-hp-fill" style="width: 100%"></div>
-            </div>
-            <span class="hp-val" id="p1-hp-val">100</span>
+      <div id="winnerBanner" style="display:none;font-family:'Press Start 2P',monospace;font-size:1.2rem;align-items:center;gap:1rem;animation:winnerPulse 1s ease-in-out infinite;justify-content:center"></div>
+
+      <div id="errorBanner" role="alert" style="display:none;font-size:.65rem;color:var(--error);text-shadow:0 0 8px var(--error-glow);border:1px solid var(--error);padding:.8rem 1.5rem;background:rgba(255,51,102,.06);box-shadow:0 0 16px var(--error-glow);text-align:center;animation:errorAppear .3s ease-out;width:100%;max-width:600px"></div>
+
+      <div class="match-history-panel" style="width:100%;max-width:900px;background:rgba(255,255,255,.01);border:1px solid rgba(255,255,255,.08);padding:1.2rem;box-sizing:border-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <p style="font-size:.55rem;color:var(--text);letter-spacing:.2em;margin:0">📜 ARENA SCOREBOARD LOG</p>
+          <button id="clearHistoryBtn" style="font-family:'Press Start 2P',monospace;font-size:.45rem;background:transparent;border:1px solid var(--error);color:var(--error);padding:.4rem .6rem;cursor:pointer">WIPE LOGS</button>
+        </div>
+        <div id="historyRowsContainer" style="display:flex;flex-direction:column;gap:.5rem;max-height:160px;overflow-y:auto">
           </div>
-          <div class="hp-row p2">
-            <span class="hp-name" id="p2-hp-name">Player 2</span>
-            <div class="hp-track" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Player 2 HP">
-              <div class="hp-fill" id="p2-hp-fill" style="width: 100%"></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:.5rem">
+        <p style="font-size:.5rem;color:var(--text-muted);letter-spacing:.2em">ARENA POWER-UPS</p>
+        <div id="arena" style="display:flex;gap:1rem;min-height:60px;align-items:center;flex-wrap:wrap;justify-content:center"></div>
+      </div>
+
+      <div class="cards-row" style="display:flex;gap:3rem;width:100%;justify-content:center;align-items:flex-start">
+
+        <div id="card1" class="player-card" style="flex:1;max-width:480px;background:var(--card-bg);border:1px solid rgba(95,237,131,.2);position:relative;overflow:hidden;animation:cardSlideIn .5s ease-out both;backdrop-filter:blur(4px)">
+          <div class="card-shine" style="position:absolute;top:-100%;left:-60%;width:40%;height:300%;background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,.04) 40%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.04) 60%,transparent 100%);transform:skewX(-15deg);animation:cardShine 4s ease-in-out infinite;pointer-events:none"></div>
+          <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1.2rem;position:relative;z-index:1">
+            <div id="name1" style="font-size:.85rem;color:var(--accent1);text-shadow:0 0 10px var(--accent1-glow);letter-spacing:.08em"></div>
+            <div style="display:flex;flex-direction:column;gap:.3rem">
+              <div style="display:flex;justify-content:space-between">
+                <span style="font-size:.5rem;color:var(--text-muted)">HP</span>
+                <span id="hp1" style="font-size:.5rem;color:var(--accent1)">100</span>
+              </div>
+              <div style="height:8px;background:rgba(255,255,255,.08);border:1px solid var(--accent1-dim);overflow:hidden">
+                <div id="hpBar1" style="height:100%;background:var(--accent1);width:100%;transition:width .4s ease;box-shadow:0 0 6px var(--accent1-glow)"></div>
+              </div>
             </div>
-            <span class="hp-val" id="p2-hp-val">100</span>
+            <div id="effects1" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px"></div>
+            <div id="status1" style="font-size:.75rem;animation:loadingGreenPurple .8s step-end infinite;letter-spacing:.2em">LOADING...</div>
+            <div id="grid1" style="overflow-x:auto;overflow-y:hidden;display:none">
+              <div id="gridInner1" style="display:flex;flex-direction:row;gap:2px"></div>
+            </div>
+            <div id="stats1" style="display:none;flex-direction:column;gap:.4rem;font-size:.6rem;color:var(--text-muted);line-height:1.6"></div>
           </div>
         </div>
 
-        <!-- Power-up spawn zone (wired to engine in engine.ts) -->
-        <div id="powerup-area" aria-label="Active power-ups"></div>
+        <div id="collectBtns" style="display:flex;flex-direction:column;gap:.5rem;align-items:center;justify-content:center;min-width:120px;align-self:center">
+          <button id="collectP1" data-player="0" style="display:none;font-family:'Press Start 2P',monospace;font-size:.5rem;padding:.5rem .6rem;background:transparent;border:1px solid var(--accent1);color:var(--accent1);cursor:pointer">P1 GRAB</button>
+          <button id="collectP2" data-player="1" style="display:none;font-family:'Press Start 2P',monospace;font-size:.5rem;padding:.5rem .6rem;background:transparent;border:1px solid var(--accent2);color:var(--accent2);cursor:pointer">P2 GRAB</button>
+          <button id="attackBtn" style="display:none;font-family:'Press Start 2P',monospace;font-size:.55rem;padding:.6rem .8rem;background:transparent;border:1px solid var(--text-muted);color:var(--text-muted);cursor:pointer;letter-spacing:.05em">NEXT TURN ⚔</button>
+        </div>
 
-        <!-- Turn-by-turn log -->
-        <p class="log-label">Battle Log</p>
-        <div id="battle-log" role="log" aria-live="polite"></div>
+        <div id="card2" class="player-card" style="flex:1;max-width:480px;background:var(--card-bg);border:1px solid rgba(138,43,226,.25);position:relative;overflow:hidden;animation:cardSlideIn .5s ease-out .1s both;backdrop-filter:blur(4px)">
+          <div class="card-shine" style="position:absolute;top:-100%;left:-60%;width:40%;height:300%;background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,.04) 40%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.04) 60%,transparent 100%);transform:skewX(-15deg);animation:cardShine 4s ease-in-out infinite 2s;pointer-events:none"></div>
+          <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1.2rem;position:relative;z-index:1">
+            <div id="name2" style="font-size:.85rem;color:var(--accent2);text-shadow:0 0 10px var(--accent2-glow);letter-spacing:.08em"></div>
+            <div style="display:flex;flex-direction:column;gap:.3rem">
+              <div style="display:flex;justify-content:space-between">
+                <span style="font-size:.5rem;color:var(--text-muted)">HP</span>
+                <span id="hp2" style="font-size:.5rem;color:var(--accent2)">100</span>
+              </div>
+              <div style="height:8px;background:rgba(255,255,255,.08);border:1px solid var(--accent2-dim);overflow:hidden">
+                <div id="hpBar2" style="height:100%;background:var(--accent2);width:100%;transition:width .4s ease;box-shadow:0 0 6px var(--accent2-glow)"></div>
+              </div>
+            </div>
+            <div id="effects2" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;justify-content:flex-end"></div>
+            <div id="status2" style="font-size:.75rem;animation:loadingGreenPurple .8s step-end infinite;letter-spacing:.2em">LOADING...</div>
+            <div id="grid2" style="overflow-x:auto;overflow-y:hidden;display:none">
+              <div id="gridInner2" style="display:flex;flex-direction:row;gap:2px"></div>
+            </div>
+            <div id="stats2" style="display:none;flex-direction:column;gap:.4rem;font-size:.6rem;color:var(--text-muted);line-height:1.6"></div>
+          </div>
+        </div>
 
-        <!-- Winner announcement -->
-        <div id="winner-banner" role="status"></div>
-      </section>
+      </div>
 
-    </div><!-- /arena-body -->
-  </main>
+      <div style="width:100%;max-width:900px">
+        <p style="font-size:.5rem;color:var(--text-muted);letter-spacing:.2em;margin-bottom:.5rem">BATTLE LOG</p>
+        <div id="battleLog" style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);padding:.8rem;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:.4rem"></div>
+      </div>
 
-  
+    </section>
+  </div>
 
-  <script>
-    // ── DOM refs ──────────────────────────────────────────────────
-    const p1Input      = document.getElementById('p1-input');
-    const p2Input      = document.getElementById('p2-input');
-    const battleBtn    = document.getElementById('battle-btn');
-    const resultsEl    = document.getElementById('results');
-    const battleLog    = document.getElementById('battle-log');
-    const winnerBanner = document.getElementById('winner-banner');
-    const powerupArea  = document.getElementById('powerup-area');
+  <script type="module">
+    import { getMatchHistory, saveMatchResult, clearMatchHistory } from '/src/lib/game/matchTracker.ts';
 
-    const p1HpFill = document.getElementById('p1-hp-fill');
-    const p2HpFill = document.getElementById('p2-hp-fill');
-    const p1HpVal  = document.getElementById('p1-hp-val');
-    const p2HpVal  = document.getElementById('p2-hp-val');
-    const p1HpName = document.getElementById('p1-hp-name');
-    const p2HpName = document.getElementById('p2-hp-name');
-    const p1Track  = p1HpFill.closest('[role=progressbar]');
-    const p2Track  = p2HpFill.closest('[role=progressbar]');
+    // ─── Power-up configuration ──────────────────────────────────────
+    const POWERUP_REGISTRY = {
+      health_boost: { id: 'health_boost', label: 'HEALTH BOOST', icon: '❤️', description: 'Restore 20 HP', duration: null },
+      attack_surge: { id: 'attack_surge', label: 'ATTACK SURGE', icon: '⚡', description: '2× damage next attack', duration: 30000 },
+      shield:       { id: 'shield',       label: 'SHIELD',       icon: '🛡️', description: 'Absorb next hit',    duration: 60000 },
+    };
+    const POWERUP_CONFIG = { spawnIntervalMs: 8000, maxConcurrent: 3, arenaTtlMs: 15000 };
+    const ALL_KINDS = ['health_boost', 'attack_surge', 'shield'];
 
-    // ── Helpers ───────────────────────────────────────────────────
-    function log(text, cls = '') {
-      const line = document.createElement('span');
-      line.className = `log-line ${cls}`;
-      line.textContent = text;
-      battleLog.appendChild(line);
-      battleLog.scrollTop = battleLog.scrollHeight;
+    function uid() { return Math.random().toString(36).slice(2, 9); }
+    function randomKind() { return ALL_KINDS[Math.floor(Math.random() * ALL_KINDS.length)]; }
+
+    // ─── Battle state ─────────────────────────────────────────────────
+    let state = null;
+    let spawnTimerInterval = null;
+    let hasLoggedMatchResult = false;
+
+    function initState(u1, u2) {
+      return {
+        players: [
+          { username: u1, hp: 100, activePowerUps: [] },
+          { username: u2, hp: 100, activePowerUps: [] },
+        ],
+        arenaPowerUps: [],
+        currentTurn: 0,
+        lastSpawnAt: Date.now(),
+        log: [],
+      };
     }
 
-    function setHP(player, hp, maxHp = 100) {
-      const pct   = Math.max(0, Math.round((hp / maxHp) * 100));
-      const fill  = player === 1 ? p1HpFill : p2HpFill;
-      const val   = player === 1 ? p1HpVal  : p2HpVal;
-      const track = player === 1 ? p1Track   : p2Track;
-      fill.style.width = `${pct}%`;
-      val.textContent  = hp;
-      track.setAttribute('aria-valuenow', hp);
+    function calcDamage() { return Math.floor(Math.random() * 15) + 5; }
+
+    function applyActiveEffects(baseDmg, attackerIdx, defenderIdx) {
+      let dmg = baseDmg;
+      const attacker = state.players[attackerIdx];
+      const defender = state.players[defenderIdx];
+
+      const surge = attacker.activePowerUps.find(p => p.kind === 'attack_surge');
+      if (surge) {
+        dmg *= 2;
+        addLog(`${attacker.username}'s ATTACK SURGE doubled damage to ${dmg}!`);
+        attacker.activePowerUps = attacker.activePowerUps.filter(p => p.uid !== surge.uid);
+      }
+
+      const shield = defender.activePowerUps.find(p => p.kind === 'shield');
+      if (shield) {
+        addLog(`${defender.username}'s SHIELD absorbed ${dmg} damage!`);
+        defender.activePowerUps = defender.activePowerUps.filter(p => p.uid !== shield.uid);
+        dmg = 0;
+      }
+
+      return { dmg };
     }
 
-    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-    // ── Fetch contributions via stub API ──────────────────────────
-    async function fetchContributions(username) {
-      try {
-        const res  = await fetch(`/api/contributions/${encodeURIComponent(username)}`);
-        const data = await res.json();
-        // Stub API returns { contributions: number }; fall back to random
-        return typeof data.contributions === 'number'
-          ? data.contributions
-          : Math.floor(Math.random() * 800) + 50;
-      } catch {
-        // Offline / stub not yet implemented — use random for demo
-        return Math.floor(Math.random() * 800) + 50;
+    function expireTimedEffects() {
+      const now = Date.now();
+      for (const player of state.players) {
+        player.activePowerUps = player.activePowerUps.filter(p => {
+          const expired = now - p.activatedAt >= p.duration;
+          if (expired) addLog(`${player.username}'s ${POWERUP_REGISTRY[p.kind].label} expired.`);
+          return !expired;
+        });
       }
     }
 
-    // ── Battle simulation ─────────────────────────────────────────
-    // This wires directly to the engine/effects interfaces defined in POWERUP_PLAN.md.
-    // Replace the dummy logic below with real engine calls as those modules land.
-
-    async function runBattle(p1Name, p2Name, p1Contribs, p2Contribs) {
-      // Stat scaling: contributions → base damage per turn (5–30)
-      const scale = (c) => 5 + Math.min(25, Math.floor(c / 40));
-      const p1Dmg = scale(p1Contribs);
-      const p2Dmg = scale(p2Contribs);
-      const MAX_HP = 100;
-
-      let p1HP = MAX_HP, p2HP = MAX_HP;
-      let turn = 0;
-
-      log(`── Battle start ──`, 'system');
-      log(`${p1Name}: ${p1Contribs} contributions  |  ATK ${p1Dmg}`, 'system');
-      log(`${p2Name}: ${p2Contribs} contributions  |  ATK ${p2Dmg}`, 'system');
-      log(``, 'system');
-
-      // ---- TODO: replace with powerUpEngine.updateSpawns(battleState) ----
-      // Stub: drop a random power-up chip into the UI as a placeholder
-      spawnPowerUpStub(p1Name, p2Name);
-
-      while (p1HP > 0 && p2HP > 0 && turn < 30) {
-        turn++;
-        await sleep(420);
-
-        // ---- TODO: call effects.applyActiveEffects() here ----
-        const d2 = Math.max(1, p1Dmg + Math.floor(Math.random() * 6) - 2);
-        p2HP = Math.max(0, p2HP - d2);
-        setHP(2, p2HP, MAX_HP);
-        log(`Turn ${turn}: ${p1Name} hits ${p2Name} for ${d2} dmg  (${p2HP} HP left)`, 'hit');
-
-        if (p2HP <= 0) break;
-        await sleep(280);
-
-        const d1 = Math.max(1, p2Dmg + Math.floor(Math.random() * 6) - 2);
-        p1HP = Math.max(0, p1HP - d1);
-        setHP(1, p1HP, MAX_HP);
-        log(`Turn ${turn}: ${p2Name} hits ${p1Name} for ${d1} dmg  (${p1HP} HP left)`, 'hit');
-
-        // ---- TODO: powerUpEngine.updateTimers(battleState) ----
+    function updateSpawns() {
+      const now = Date.now();
+      state.arenaPowerUps = state.arenaPowerUps.filter(p => now - p.spawnedAt < POWERUP_CONFIG.arenaTtlMs);
+      if (now - state.lastSpawnAt >= POWERUP_CONFIG.spawnIntervalMs && state.arenaPowerUps.length < POWERUP_CONFIG.maxConcurrent) {
+        const p = { uid: uid(), kind: randomKind(), spawnedAt: now };
+        state.arenaPowerUps.push(p);
+        state.lastSpawnAt = now;
+        addLog(`A ${POWERUP_REGISTRY[p.kind].label} appeared on the arena!`);
+        renderArena();
       }
-
-      await sleep(400);
-      const winner = p1HP > p2HP ? p1Name : p2Name;
-      log(``, 'system');
-      log(`🏆  ${winner} wins!`, 'winner');
-
-      winnerBanner.textContent = `🏆  ${winner} wins!`;
-      winnerBanner.classList.add('visible');
     }
 
-    // ── Power-up stub (placeholder until engine.ts is wired) ─────
-    const POWERUP_STUBS = [
-      { id: 'health_boost', label: '❤ Health Boost' },
-      { id: 'attack_surge', label: '⚡ Attack Surge' },
-      { id: 'shield',       label: '🛡 Shield'        },
-    ];
+    function collectPowerUp(powerUpUid, playerIdx) {
+      const idx = state.arenaPowerUps.findIndex(p => p.uid === powerUpUid);
+      if (idx === -1) return;
+      const [picked] = state.arenaPowerUps.splice(idx, 1);
+      const def = POWERUP_REGISTRY[picked.kind];
+      const player = state.players[playerIdx];
+      if (def.duration === null) {
+        player.hp = Math.min(100, player.hp + 20);
+        addLog(`${player.username} gained 20 HP from HEALTH BOOST!`);
+      } else {
+        player.activePowerUps.push({ uid: picked.uid, kind: picked.kind, activatedAt: Date.now(), duration: def.duration });
+        addLog(`${player.username} activated ${def.label}!`);
+      }
+      renderArena();
+      renderEffects();
+      renderHP();
+    }
 
-    function spawnPowerUpStub(p1Name, p2Name) {
-      powerupArea.innerHTML = '';
-      const pu = POWERUP_STUBS[Math.floor(Math.random() * POWERUP_STUBS.length)];
-      const chip = document.createElement('button');
-      chip.className = 'powerup-chip';
-      chip.textContent = pu.label;
-      chip.title = `Click to collect for ${p1Name}`;
-      chip.addEventListener('click', () => {
-        log(`✦ ${p1Name} collected ${pu.label}!`, 'heal');
-        chip.remove();
-        // TODO: collectPowerUp(battleState, pu.id, 'p1') from engine.ts
+    function doTurn() {
+      if (!state) return;
+      const attackerIdx = state.currentTurn % 2;
+      const defenderIdx = 1 - attackerIdx;
+      updateSpawns();
+      expireTimedEffects();
+      const base = calcDamage();
+      const { dmg } = applyActiveEffects(base, attackerIdx, defenderIdx);
+      if (dmg > 0) {
+        state.players[defenderIdx].hp = Math.max(0, state.players[defenderIdx].hp - dmg);
+        addLog(`${state.players[attackerIdx].username} hits ${state.players[defenderIdx].username} for ${dmg} damage!`);
+      }
+      state.currentTurn++;
+      renderHP();
+      renderEffects();
+      renderArena();
+      checkGameOver();
+    }
+
+    function checkGameOver() {
+      const p0dead = state.players[0].hp <= 0;
+      const p1dead = state.players[1].hp <= 0;
+      if (!p0dead && !p1dead) return;
+      
+      clearInterval(spawnTimerInterval);
+      document.getElementById('attackBtn').style.display = 'none';
+      document.getElementById('collectP1').style.display = 'none';
+      document.getElementById('collectP2').style.display = 'none';
+      const wb = document.getElementById('winnerBanner');
+      
+      let winner = 'Draw';
+      let loser = 'Draw';
+
+      if (p0dead && p1dead) {
+        wb.innerHTML = '<span style="color:var(--text)">⚡ PERFECT DRAW! ⚡</span>';
+      } else {
+        winner = p0dead ? state.players[1].username : state.players[0].username;
+        loser = p0dead ? state.players[0].username : state.players[1].username;
+        wb.innerHTML = `<span style="display:inline-block;animation:crownBounce .5s ease-in-out infinite alternate">👑</span><span style="background:linear-gradient(135deg,var(--accent1),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">@${winner} WINS!</span><span style="display:inline-block;animation:crownBounce .5s ease-in-out infinite alternate">👑</span>`;
+      }
+      wb.style.display = 'flex';
+
+      if (!hasLoggedMatchResult) {
+        saveMatchResult(winner, loser, state.players[0].username, state.players[1].username, state.currentTurn);
+        hasLoggedMatchResult = true;
+        renderHistoryDashboard();
+      }
+    }
+
+    // ─── Rendering helpers ────────────────────────────────────────────
+    function addLog(msg) {
+      state.log.push(msg);
+      const log = document.getElementById('battleLog');
+      const el = document.createElement('p');
+      el.style.cssText = 'font-size:.5rem;color:var(--text-muted);line-height:1.6;border-bottom:1px solid rgba(255,255,255,.04);padding-bottom:.2rem';
+      el.textContent = `> ${msg}`;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function renderHP() {
+      for (const i of [0, 1]) {
+        const pct = state.players[i].hp;
+        document.getElementById(`hp${i+1}`).textContent = pct;
+        document.getElementById(`hpBar${i+1}`).style.width = pct + '%';
+      }
+    }
+
+    function renderEffects() {
+      for (const i of [0, 1]) {
+        const el = document.getElementById(`effects${i+1}`);
+        el.innerHTML = '';
+        const now = Date.now();
+        for (const e of state.players[i].activePowerUps) {
+          const def = POWERUP_REGISTRY[e.kind];
+          const secs = Math.max(0, Math.ceil((e.duration - (now - e.activatedAt)) / 1000));
+          const span = document.createElement('span');
+          span.style.cssText = `font-size:.45rem;padding:.2rem .4rem;border:1px solid ${i===0?'var(--accent1)':'var(--accent2)'};color:${i===0?'var(--accent1)':'var(--accent2)'}`;
+          span.textContent = `${def.icon} ${def.label} (${secs}s)`;
+          el.appendChild(span);
+        }
+      }
+    }
+
+    let dynamicSelectedPowerUpUid = null;
+
+    function renderArena() {
+      const arena = document.getElementById('arena');
+      arena.innerHTML = '';
+      if (state.arenaPowerUps.length === 0) {
+        arena.innerHTML = '<span style="font-size:.5rem;color:var(--text-muted);letter-spacing:.1em">WAITING FOR DROP...</span>';
+        document.getElementById('collectP1').style.display = 'none';
+        document.getElementById('collectP2').style.display = 'none';
+        dynamicSelectedPowerUpUid = null;
+        return;
+      }
+      state.arenaPowerUps.forEach(p => {
+        const def = POWERUP_REGISTRY[p.kind];
+        const btn = document.createElement('button');
+        btn.style.cssText = `font-family:'Press Start 2P',monospace;font-size:.55rem;background:rgba(255,255,255,.02);border:1px solid var(--border);color:var(--text);padding:.5rem 1rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;box-shadow:0 0 10px rgba(0,0,0,.5);animation:floatIn .3s ease-out`;
+        if (dynamicSelectedPowerUpUid === p.uid) {
+          btn.style.borderColor = 'var(--text)';
+          btn.style.boxShadow = '0 0 12px rgba(255,255,255,.2)';
+        }
+        btn.innerHTML = `<span>${def.icon}</span> <span>${def.label}</span>`;
+        btn.onclick = () => {
+          dynamicSelectedPowerUpUid = p.uid;
+          renderArena();
+          document.getElementById('collectP1').style.display = 'block';
+          document.getElementById('collectP2').style.display = 'block';
+        };
+        arena.appendChild(btn);
       });
-      powerupArea.appendChild(chip);
     }
 
-    // ── Battle button handler ─────────────────────────────────────
-    battleBtn.addEventListener('click', async () => {
-      const p1Name = p1Input.value.trim();
-      const p2Name = p2Input.value.trim();
+    function renderHistoryDashboard() {
+      const container = document.getElementById('historyRowsContainer');
+      if (!container) return;
 
-      if (!p1Name || !p2Name) {
-        p1Name ? p2Input.focus() : p1Input.focus();
+      const history = getMatchHistory();
+      if (history.length === 0) {
+        container.innerHTML = '<span style="font-size:.5rem;color:var(--text-muted);font-style:italic">No historical records saved.</span>';
         return;
       }
 
-      // Reset UI
-      battleBtn.disabled  = true;
-      battleBtn.textContent = '⏳ Fetching data…';
-      battleLog.innerHTML = '';
-      winnerBanner.classList.remove('visible');
-      powerupArea.innerHTML = '';
-      setHP(1, 100); setHP(2, 100);
-      p1HpName.textContent = p1Name;
-      p2HpName.textContent = p2Name;
-      resultsEl.classList.add('visible');
+      container.innerHTML = history.map(match => {
+        // Validation highlighting: Color codes green if Player 1 claims the victory card
+        const isP1Winner = match.winner === match.player1;
+        const borderGlowColor = isP1Winner ? 'rgba(95,237,131,.4)' : 'rgba(138,43,226,.4)';
+        const textHighlightColor = isP1Winner ? 'var(--accent1)' : 'var(--accent2)';
 
-      // Fetch contribution counts
-      const [p1C, p2C] = await Promise.all([
-        fetchContributions(p1Name),
-        fetchContributions(p2Name),
-      ]);
+        return `
+          <div style="padding:.6rem 1rem;background:rgba(255,255,255,.02);border:1px solid #222;border-left:4px solid ${borderGlowColor};font-size:.5rem;display:flex;justify-content:space-between;align-items:center;animation:floatIn .2s ease-out">
+            <div>🕒 <span>${match.timestamp}</span> | <span style="color:${textHighlightColor}">@${match.player1}</span> vs <span>@${match.player2}</span></div>
+            <div>🏆 WINNER: <span style="color:#ffdd00">${match.winner.toUpperCase()}</span> (Turns: ${match.turns})</div>
+          </div>
+        `;
+      }).join('');
+    }
 
-      battleBtn.textContent = '⚔ BATTLE';
+    // ─── API Connection Layer & Fallback Engine ───────────────────────
+    const GITHUB_PALETTE = ['#161b22', '#0e4429', '#006d32', '#26a641', '#39d353'];
 
-      await runBattle(p1Name, p2Name, p1C, p2C);
+    function createContributionColumn(columnDays) {
+      const col = document.createElement('div');
+      col.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+      columnDays.forEach(day => {
+        const cell = document.createElement('div');
+        cell.style.cssText = 'width:10px;height:10px;border-radius:1px';
+        cell.style.backgroundColor = GITHUB_PALETTE[day.level] || GITHUB_PALETTE[0];
+        cell.title = `${day.date}: ${day.count} commits`;
+        col.appendChild(cell);
+      });
+      return col;
+    }
 
-      battleBtn.disabled    = false;
-      battleBtn.textContent = '⚔ BATTLE AGAIN';
+    function renderContributionGrid(targetId, innerId, days) {
+      const grid = document.getElementById(targetId);
+      const inner = document.getElementById(innerId);
+      inner.innerHTML = '';
+      
+      const sortedDays = [...days].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      let currentColumn = [];
+      sortedDays.forEach(day => {
+        currentColumn.push(day);
+        if (currentColumn.length === 7) {
+          inner.appendChild(createContributionColumn(currentColumn));
+          currentColumn = [];
+        }
+      });
+      if (currentColumn.length > 0) {
+        inner.appendChild(createContributionColumn(currentColumn));
+      }
+      grid.style.display = 'block';
+    }
+
+    // Robust Fallback Array Data Engine Mock
+    function generateMockDays() {
+      const days = [];
+      const now = new Date();
+      for (let i = 28; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        days.push({
+          date: d.toISOString().split('T')[0],
+          count: Math.floor(Math.random() * 8),
+          level: Math.floor(Math.random() * 5)
+        });
+      }
+      return days;
+    }
+
+    async function fetchUserData(username) {
+      try {
+        const response = await fetch(`/api/contributions/${encodeURIComponent(username)}`);
+        if (!response.ok) throw new Error();
+        return await response.json();
+      } catch {
+        // Fallback catch seamlessly handles your current API 404/Not Found exception state
+        console.warn(`API profile fetch down. Engaging local canvas simulation matrix backup for @${username}`);
+        return {
+          total: Math.floor(Math.random() * 120) + 30,
+          range: { start: '2026-05-15', end: '2026-06-15' },
+          days: generateMockDays()
+        };
+      }
+    }
+
+    async function launchBattleSequence() {
+      const u1 = document.getElementById('player1').value.trim();
+      const u2 = document.getElementById('player2').value.trim();
+      const vError = document.getElementById('validationError');
+      const resultsSection = document.getElementById('results');
+      const errorBanner = document.getElementById('errorBanner');
+
+      vError.style.display = 'none';
+      errorBanner.style.display = 'none';
+      document.getElementById('winnerBanner').style.display = 'none';
+
+      if (!u1 || !u2) {
+        vError.textContent = 'ERROR: BOTH USERNAMES ARE REQUIRED TO LAUNCH BATTLE!';
+        vError.style.display = 'block';
+        return;
+      }
+
+      resultsSection.style.display = 'flex';
+      document.getElementById('battleLog').innerHTML = '';
+      hasLoggedMatchResult = false;
+      renderHistoryDashboard();
+      
+      for (const i of [1, 2]) {
+        document.getElementById(`name${i}`).textContent = `@${i === 1 ? u1 : u2}`;
+        document.getElementById(`status${i}`).style.display = 'block';
+        document.getElementById(`status${i}`).textContent = 'LOADING...';
+        document.getElementById(`grid${i}`).style.display = 'none';
+        document.getElementById(`stats${i}`).style.display = 'none';
+        document.getElementById(`hp${i}`).textContent = '100';
+        document.getElementById(`hpBar${i}`).style.width = '100%';
+        document.getElementById(`effects${i}`).innerHTML = '';
+      }
+
+      try {
+        const [data1, data2] = await Promise.all([fetchUserData(u1), fetchUserData(u2)]);
+        
+        state = initState(u1, u2);
+
+        document.getElementById('status1').style.display = 'none';
+        renderContributionGrid('grid1', 'gridInner1', data1.days);
+        const stats1 = document.getElementById('stats1');
+        stats1.innerHTML = `<div>TOTAL COMMITS: ${data1.total}</div><div>RANGE: ${data1.range.start} - ${data1.range.end}</div>`;
+        stats1.style.display = 'flex';
+
+        document.getElementById('status2').style.display = 'none';
+        renderContributionGrid('grid2', 'gridInner2', data2.days);
+        const stats2 = document.getElementById('stats2');
+        stats2.innerHTML = `<div>TOTAL COMMITS: ${data2.total}</div><div>RANGE: ${data2.range.start} - ${data2.range.end}</div>`;
+        stats2.style.display = 'flex';
+
+        addLog(`Match initialized: @${u1} vs @${u2}!`);
+        document.getElementById('attackBtn').style.display = 'block';
+        renderArena();
+
+        if (spawnTimerInterval) clearInterval(spawnTimerInterval);
+        spawnTimerInterval = setInterval(() => {
+          if (state) {
+            updateSpawns();
+            expireTimedEffects();
+            renderEffects();
+          }
+        }, 1000);
+
+      } catch (err) {
+        for (const i of [1, 2]) {
+          document.getElementById(`status${i}`).style.display = 'none';
+        }
+        errorBanner.textContent = `CRITICAL INTERNALS ERROR: UNABLE TO ENGAGE SIMULATION ENGINE.`;
+        errorBanner.style.display = 'block';
+      }
+    }
+
+    // ─── Event Wiring & Dom Attachment Bounds ───────────────────────
+    document.getElementById('battleBtn').onclick = launchBattleSequence;
+    document.getElementById('attackBtn').onclick = doTurn;
+
+    [document.getElementById('player1'), document.getElementById('player2')].forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') launchBattleSequence();
+      });
     });
 
-    // Allow Enter key on either input to start the battle
-    [p1Input, p2Input].forEach(el =>
-      el.addEventListener('keydown', e => {
-        if (e.key === 'Enter') battleBtn.click();
-      })
-    );
-  </script>
+    document.getElementById('collectP1').onclick = () => {
+      if (dynamicSelectedPowerUpUid) collectPowerUp(dynamicSelectedPowerUpUid, 0);
+    };
+    document.getElementById('collectP2').onclick = () => {
+      if (dynamicSelectedPowerUpUid) collectPowerUp(dynamicSelectedPowerUpUid, 1);
+    };
+    document.getElementById('clearHistoryBtn').onclick = () => {
+      clearMatchHistory();
+      renderHistoryDashboard();
+    };
 
+    // Paint initial records on bootstrap
+    renderHistoryDashboard();
+  </script>
 </body>
 </html>

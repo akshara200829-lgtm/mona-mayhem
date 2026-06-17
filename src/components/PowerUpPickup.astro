@@ -1,94 +1,65 @@
 ---
-/**
- * PowerUpPickup Component
- * Displays a spawned power-up on the arena.
- * Clicking it triggers collection mechanics.
- */
-import type { SpawnedPowerUp } from "../lib/types/powerup";
-import { getPowerUpDefinition } from "../lib/powerups/registry";
+import type { ArenaPowerUp } from "../lib/types/powerup";
+import { POWERUP_REGISTRY } from "../lib/powerups/registry";
 
 interface Props {
-  powerUp: SpawnedPowerUp;
+  powerUp: ArenaPowerUp;
 }
 
 const { powerUp } = Astro.props;
-const definition = getPowerUpDefinition(powerUp.type);
+const def = POWERUP_REGISTRY[powerUp.kind];
 ---
 
-<div
+<button
   class="powerup-pickup"
-  data-powerup-id={powerUp.id}
-  style={`left: ${powerUp.position.x}px; top: ${powerUp.position.y}px; border-color: ${definition?.arcadeTheme.color || '#333'};`}
-  title={definition?.description}
+  data-uid={powerUp.uid}
+  data-kind={powerUp.kind}
+  title={def.description}
+  aria-label={`Collect ${def.label}`}
 >
-  <div class="powerup-icon">
-    {definition?.arcadeTheme.icon ?? "⚡"}
-  </div>
-  <div class="powerup-name">
-    {definition?.name}
-  </div>
-</div>
-
-<script>
-  function setupPowerUps() {
-    document.querySelectorAll(".powerup-pickup").forEach((element) => {
-      // Clean duplicate handlers before mounting new elements
-      element.removeEventListener("click", handlePowerUpClick);
-      element.addEventListener("click", handlePowerUpClick);
-    });
-  }
-
-  function handlePowerUpClick(event: Event) {
-    const element = event.currentTarget as HTMLElement;
-    const id = element.getAttribute("data-powerup-id");
-
-    if (!id) return;
-
-    window.dispatchEvent(
-      new CustomEvent("collectPowerUp", {
-        detail: { powerUpId: id },
-      })
-    );
-
-    element.remove();
-  }
-
-  // Bind to dynamic layout changes during Astro page adjustments
-  document.addEventListener("DOMContentLoaded", setupPowerUps);
-</script>
+  <span class="powerup-icon">{def.icon}</span>
+  <span class="powerup-label">{def.label}</span>
+</button>
 
 <style>
-  .powerup-pickup {
-    position: absolute;
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    user-select: none;
-    background: rgba(20, 20, 20, 0.85);
-    border: 3px solid #333;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
-    animation: powerupPulse 1.5s infinite ease-in-out;
-  }
+.powerup-pickup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid var(--accent1);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: 'Press Start 2P', monospace;
+  animation: powerupFloat 1.5s ease-in-out infinite, powerupGlow 1.5s ease-in-out infinite;
+  box-shadow: 0 0 12px var(--accent1-glow);
+  transition: transform 0.15s;
+}
 
-  .powerup-icon {
-    font-size: 28px;
-  }
+.powerup-pickup:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 24px var(--accent1-glow);
+}
 
-  .powerup-name {
-    font-size: 10px;
-    margin-top: 2px;
-    font-weight: bold;
-    text-shadow: 1px 1px 2px black;
-  }
+.powerup-icon {
+  font-size: 1.4rem;
+}
 
-  @keyframes powerupPulse {
-    0% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 255, 255, 0.1); }
-    50% { transform: scale(1.08); box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
-    100% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 255, 255, 0.1); }
-  }
+.powerup-label {
+  font-size: 0.45rem;
+  color: var(--accent1);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+@keyframes powerupFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes powerupGlow {
+  0%, 100% { box-shadow: 0 0 10px var(--accent1-glow); }
+  50% { box-shadow: 0 0 24px var(--accent1-glow), 0 0 48px var(--accent1-glow); }
+}
 </style>

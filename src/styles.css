@@ -1,0 +1,124 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+  --bg: #0a0a1a;
+  --accent1: #5fed83;
+  --accent2: #8a2be2;
+  --accent1-glow: rgba(95,237,131,0.6);
+  --accent2-glow: rgba(138,43,226,0.6);
+  --accent1-dim: #2a6640;
+  --accent2-dim: #3d1466;
+  --error: #ff3366;
+  --error-glow: rgba(255,51,102,0.7);
+  --text: #e0ffe8;
+  --text-muted: #7a8a80;
+  --card-bg: rgba(10,20,15,0.85);
+  --grid1:#1a3a25; --grid2:#1f5e32; --grid3:#2a8f4a; --grid4:#5fed83;
+  --grid1-p:#2a1a42; --grid2-p:#4a1f80; --grid3-p:#6e27c0; --grid4-p:#a855f7;
+  font-family: 'Press Start 2P', monospace;
+}
+
+.theme-blue-orange {
+  --accent1: #00f5ff; --accent2: #ff6b35;
+  --accent1-glow: rgba(0,245,255,0.6); --accent2-glow: rgba(255,107,53,0.6);
+  --accent1-dim: #003a3d; --accent2-dim: #3d1a0a;
+  --grid1:#0a2a2d; --grid2:#0d4a50; --grid3:#0f7a82; --grid4:#00f5ff;
+  --grid1-p:#2a1a0a; --grid2-p:#4a2a0d; --grid3-p:#8a4a18; --grid4-p:#ff6b35;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Press Start 2P', monospace; min-height: 100vh; overflow-x: hidden;
+}
+
+/* CRT */
+.crt-scanlines {
+  pointer-events: none; position: fixed; inset: 0; z-index: 9999;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+  animation: scanlineFlicker 8s linear infinite;
+}
+.crt-vignette {
+  pointer-events: none; position: fixed; inset: 0; z-index: 9998;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.65) 100%);
+}
+@keyframes scanlineFlicker { 0%,95%,100%{opacity:1} 96%{opacity:0.85} 98%{opacity:0.9} }
+
+/* Title */
+@keyframes neonPulse {
+  0%,100%{text-shadow:0 0 8px var(--accent1-glow),0 0 18px var(--accent1-glow),0 0 35px var(--accent1-glow);opacity:1}
+  50%{text-shadow:0 0 16px var(--accent1-glow),0 0 32px var(--accent1-glow),0 0 64px var(--accent1-glow);opacity:.95}
+}
+@keyframes neonPulse2 {
+  0%,100%{text-shadow:0 0 8px var(--accent2-glow),0 0 18px var(--accent2-glow),0 0 35px var(--accent2-glow);opacity:1}
+  50%{text-shadow:0 0 16px var(--accent2-glow),0 0 32px var(--accent2-glow),0 0 64px var(--accent2-glow);opacity:.95}
+}
+@keyframes electricFlicker {
+  0%,89%,91%,93%,95%,97%,100%{opacity:1} 90%{opacity:0.3} 92%{opacity:0.9} 94%{opacity:0.2} 98%{opacity:0.6}
+}
+@keyframes titleFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+@keyframes subtitleBlink { 0%,80%,100%{opacity:0.7} 50%{opacity:0.3} }
+
+/* VS Badge */
+@keyframes vsPulse {
+  0%,100%{transform:scale(1);box-shadow:0 0 15px var(--accent1-glow),0 0 30px var(--accent2-glow)}
+  50%{transform:scale(1.2);box-shadow:0 0 30px var(--accent1-glow),0 0 60px var(--accent2-glow),0 0 90px var(--accent1-glow)}
+}
+@keyframes vsRotateGradient { from{filter:hue-rotate(0deg)} to{filter:hue-rotate(360deg)} }
+
+/* Errors */
+@keyframes shakeError {
+  0%,100%{transform:translateX(0)} 10%{transform:translateX(-8px)} 20%{transform:translateX(8px)}
+  30%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 50%{transform:translateX(-6px)}
+  60%{transform:translateX(6px)} 70%{transform:translateX(-4px)} 80%{transform:translateX(4px)} 90%{transform:translateX(-2px)}
+}
+@keyframes errorAppear { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes floatIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+/* Loading */
+@keyframes loadingGreenPurple {
+  0%,49%{color:var(--accent1);text-shadow:0 0 8px var(--accent1-glow)}
+  50%,100%{color:var(--accent2);text-shadow:0 0 8px var(--accent2-glow)}
+}
+
+/* HP bar */
+@keyframes hpPulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+
+/* Card shine */
+@keyframes cardShine { 0%{left:-60%} 50%,100%{left:140%} }
+@keyframes cardSlideIn { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+
+/* Winner */
+@keyframes winnerPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
+@keyframes crownBounce { from{transform:translateY(0)} to{transform:translateY(-6px)} }
+@keyframes footerBlink { 0%,100%{opacity:0.5} 50%{opacity:0.2} }
+@keyframes btnShimmer { 0%{left:-75%} 100%{left:150%} }
+@keyframes btnGlow {
+  0%,100%{box-shadow:0 0 15px var(--accent1-glow),0 0 30px var(--accent2-glow)}
+  50%{box-shadow:0 0 30px var(--accent1-glow),0 0 60px var(--accent2-glow)}
+}
+@keyframes turnIndicator { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* Contribution squares */
+.sq{width:11px;height:11px;border-radius:1px;display:inline-block;transition:transform .15s,box-shadow .15s;cursor:default}
+.sq:hover{transform:scale(1.6);z-index:10}
+.sq.l0{background:rgba(255,255,255,0.05)}
+.sq.l1.g{background:var(--grid1)} .sq.l2.g{background:var(--grid2)} .sq.l3.g{background:var(--grid3)}
+.sq.l4.g{background:var(--grid4);box-shadow:0 0 4px var(--accent1-glow)}
+.sq.l1.p{background:var(--grid1-p)} .sq.l2.p{background:var(--grid2-p)} .sq.l3.p{background:var(--grid3-p)}
+.sq.l4.p{background:var(--grid4-p);box-shadow:0 0 4px var(--accent2-glow)}
+.sq.l1.g:hover{box-shadow:0 0 6px var(--accent1-glow)} .sq.l2.g:hover{box-shadow:0 0 8px var(--accent1-glow)}
+.sq.l3.g:hover{box-shadow:0 0 10px var(--accent1-glow)} .sq.l4.g:hover{box-shadow:0 0 14px var(--accent1-glow),0 0 22px var(--accent1-glow)}
+.sq.l1.p:hover{box-shadow:0 0 6px var(--accent2-glow)} .sq.l2.p:hover{box-shadow:0 0 8px var(--accent2-glow)}
+.sq.l3.p:hover{box-shadow:0 0 10px var(--accent2-glow)} .sq.l4.p:hover{box-shadow:0 0 14px var(--accent2-glow),0 0 22px var(--accent2-glow)}
+
+@media(max-width:1024px){.cards-row{flex-direction:column!important;align-items:center!important}}
+@media(max-width:768px){
+  .title-line1{font-size:1.4rem!important} .title-line2{font-size:2rem!important}
+  .inputs-row{flex-direction:column!important;gap:1.2rem!important}
+  .battle-input{width:100%!important} .vs-badge{width:52px!important;height:52px!important}
+  .battle-btn{font-size:0.75rem!important;padding:.9rem 1.8rem!important}
+  .sq{width:8px!important;height:8px!important}
+}
+:focus-visible{outline:2px solid var(--accent1);outline-offset:3px}

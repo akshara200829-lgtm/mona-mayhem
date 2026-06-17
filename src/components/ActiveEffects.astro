@@ -1,98 +1,61 @@
 ---
-/**
- * ActiveEffects Component
- * Shows currently active buffs on a player.
- */
 import type { ActivePowerUp } from "../lib/types/powerup";
-import { getPowerUpDefinition } from "../lib/powerups/registry";
+import { POWERUP_REGISTRY } from "../lib/powerups/registry";
 
 interface Props {
   effects: ActivePowerUp[];
+  side: "left" | "right";
 }
 
-const { effects } = Astro.props;
+const { effects, side } = Astro.props;
 ---
 
-<div class="active-effects">
-  {effects.length === 0 ? (
-    <span class="no-effects">No active effects</span>
-  ) : (
-    effects.map((effect) => {
-      const definition = getPowerUpDefinition(effect.type);
-      const turnsRemaining = effect.expiresAt - effect.appliedAt;
-
-      return (
-        <div
-          class="effect-card"
-          style={`border-left: 3px solid ${definition?.arcadeTheme.color || '#555'}`}
-          title={definition?.description}
-        >
-          <div class="card-body">
-            <span class="effect-icon">{definition?.arcadeTheme.icon}</span>
-            <div class="effect-info">
-              <span class="effect-title">{definition?.name}</span>
-              <small class="effect-duration">{turnsRemaining} turn{turnsRemaining > 1 ? 's' : ''}</small>
-            </div>
-          </div>
-        </div>
-      );
-    })
-  )}
+<div class={`active-effects active-effects--${side}`}>
+  {effects.map((e) => {
+    const def = POWERUP_REGISTRY[e.kind];
+    const remaining = Math.max(0, e.duration - (Date.now() - e.activatedAt));
+    const secs = Math.ceil(remaining / 1000);
+    return (
+      <div class="effect-badge" data-uid={e.uid} data-kind={e.kind}>
+        <span class="effect-icon">{def.icon}</span>
+        <span class="effect-timer">{secs}s</span>
+      </div>
+    );
+  })}
 </div>
 
 <style>
-  .active-effects {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 10px;
-    min-height: 40px;
-  }
+.active-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 36px;
+}
 
-  .no-effects {
-    font-size: 12px;
-    color: #666;
-    font-style: italic;
-  }
+.active-effects--left { justify-content: flex-start; }
+.active-effects--right { justify-content: flex-end; }
 
-  .effect-card {
-    padding: 6px 12px;
-    border-radius: 6px;
-    background: #1a1a1a;
-    display: flex;
-    align-items: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    animation: pulse 2s infinite ease-in-out;
-  }
+.effect-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--accent1);
+  padding: 4px 8px;
+  animation: effectPulse 1s ease-in-out infinite;
+  box-shadow: 0 0 8px var(--accent1-glow);
+}
 
-  .card-body {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+.effect-icon { font-size: 1rem; }
 
-  .effect-icon {
-    font-size: 18px;
-  }
+.effect-timer {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  color: var(--accent1);
+}
 
-  .effect-info {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .effect-title {
-    font-size: 12px;
-    font-weight: 500;
-  }
-
-  .effect-duration {
-    font-size: 10px;
-    color: #aaa;
-  }
-
-  @keyframes pulse {
-    0% { opacity: 0.85; }
-    50% { opacity: 1; }
-    100% { opacity: 0.85; }
-  }
+@keyframes effectPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
 </style>
